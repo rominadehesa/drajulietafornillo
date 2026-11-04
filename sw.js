@@ -1,9 +1,9 @@
-// Service worker de la PWA de turnos.
+// Service worker de la PWA de turnos de la Dra. Julieta.
 // Estrategia simple: cache-first para los archivos propios (app shell),
 // y TODO lo de Firebase (firestore.googleapis.com, gstatic) va siempre a la
 // red: los datos de turnos nunca se sirven desde caché.
 // ⚠️ Al cambiar archivos, subí VERSION para que los celulares se actualicen.
-const VERSION = "turnos-v8";
+const VERSION = "drajulieta-v9";
 const APP_SHELL = [
   "./",
   "./index.html",

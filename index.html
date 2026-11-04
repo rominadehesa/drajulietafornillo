@@ -3,14 +3,14 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Turnos - Dra. Julieta Fornillo</title>
+<title>Dra. Julieta Fornillo - Turnos</title>
 <meta name="description" content="Reservá tu turno del consultorio online, sin llamadas.">
 <meta name="theme-color" content="#128c7e">
 <link rel="manifest" href="./manifest.webmanifest">
 <link rel="icon" href="./icons/icon-192.png">
 <link rel="apple-touch-icon" href="./icons/icon-192.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-title" content="Turnos">
+<meta name="apple-mobile-web-app-title" content="Dra Julieta">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <style>
   :root { --bg:#f6f7f9; --card:#fff; --text:#1c2430; --muted:#6b7686; --accent:#128c7e; --accent-text:#fff; --border:#dde2e8; }
@@ -146,7 +146,7 @@ let turnosLibres = [];  // [{ id, fecha, hora }] disponibles ahora mismo
 $("nombre").textContent = CONFIG.nombre;
 $("detalle").textContent = CONFIG.especialidad + " · " + CONFIG.paraQuien;
 $("pie").textContent = CONFIG.lugar + " · " + CONFIG.matricula;
-document.title = "Turnos - " + CONFIG.nombre;
+document.title = "Dra. Julieta Fornillo - Turnos";
 
 const toMin = s => { const [h, m] = String(s).split(":").map(Number); return h*60 + m; };
 const esHora = h => /^\d{1,2}:\d{2}$/.test(String(h));
