@@ -129,19 +129,26 @@ let turnos = [];
 let dejarDeEscuchar = null;
 
 /* ---------- Login con Google ----------
-   Se entra con la única cuenta autorizada: rominadehesa@gmail.com.
-   Se fuerza el selector de cuenta de Google para no heredar una sesión
-   equivocada del navegador.
-   La seguridad real está en firestore.rules: sin sesión con ESE email,
-   Firestore rechaza toda escritura del panel (ver esAdmin()). Cualquier
-   otra cuenta de Google puede abrir el panel pero no escribir nada. */
+   Se entra con una cuenta de Google de la lista AUTORIZADAS. Se fuerza el
+   selector de cuenta para no heredar una sesión equivocada del navegador.
+   La seguridad real está en firestore.rules (esAdmin()): esta lista es solo
+   para dar una respuesta amable; si alguien no autorizado igual abriera el
+   panel, Firestore le niega toda escritura. */
+const AUTORIZADAS = ["rominadehesa@gmail.com", "fornillojulieta3@gmail.com"];
+
 async function entrar() {
   $("entrar").disabled = true;
   $("loginError").textContent = "";
   const provider = new GoogleAuthProvider();
   provider.setCustomParameters({ prompt: "select_account" });
   try {
-    await signInWithPopup(auth, provider);
+    const cred = await signInWithPopup(auth, provider);
+    if (!AUTORIZADAS.includes(cred.user.email ?? "")) {
+      // Cuenta válida de Google pero no aceptada: se cierra la sesión al toque.
+      await signOut(auth);
+      $("loginError").textContent = `"${cred.user.email}" no está autorizada para usar este panel.`;
+      return;
+    }
     // Si se logra, la pantalla la cambia onAuthStateChanged; acá no falta nada.
   } catch (e) {
     // Mensaje legible según el código; se agrega el código real para diagnóstico.

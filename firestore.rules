@@ -18,11 +18,12 @@ service cloud.firestore {
       return v is string && v.size() >= min && v.size() <= max;
     }
 
-    // Única cuenta autorizada (la que se elige en el popup de Google del panel).
+    // Cuentas autorizadas (las que se eligen en el popup de Google del panel).
     // Cualquier otro usuario logueado sigue siendo "no admin".
     function esAdmin() {
-      return request.auth != null
-          && request.auth.token.email == "rominadehesa@gmail.com";
+      return request.auth != null && (
+             request.auth.token.email == "rominadehesa@gmail.com"
+          || request.auth.token.email == "fornillojulieta3@gmail.com");
     }
 
     // ---------- 1. turnos: la base única ----------
