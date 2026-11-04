@@ -1,8 +1,8 @@
 rules_version = '2';
 
 // ================================================================
-//  REGLAS CON AUTENTICACIÓN (versión definitiva).
-//  Requieren sesion iniciada como doctora@juliturnos.com para
+//  REGLAS CON AUTENTICACIÓN (login con Google).
+//  Requieren sesión iniciada como rominadehesa@gmail.com para
 //  escribir desde el panel. La reserva del paciente NO cambia.
 // ================================================================
 //
@@ -18,11 +18,11 @@ service cloud.firestore {
       return v is string && v.size() >= min && v.size() <= max;
     }
 
-    // Única cuenta del proyecto (la que crea la consola en Authentication).
+    // Única cuenta autorizada (la que se elige en el popup de Google del panel).
     // Cualquier otro usuario logueado sigue siendo "no admin".
     function esAdmin() {
       return request.auth != null
-          && request.auth.token.email == "doctora@juliturnos.com";
+          && request.auth.token.email == "rominadehesa@gmail.com";
     }
 
     // ---------- 1. turnos: la base única ----------

@@ -5,7 +5,7 @@
 //   - Estáticos inmutables (íconos, perfil, manifest): cache-first.
 //   - Firebase (firestore.googleapis.com, gstatic): SIEMPRE red, nunca caché.
 // ⚠️ Al cambiar archivos, subí VERSION para que los celulares se actualicen.
-const VERSION = "drajulieta-v16";
+const VERSION = "drajulieta-v17";
 const APP_SHELL = [
   "./",
   "./index.html",
