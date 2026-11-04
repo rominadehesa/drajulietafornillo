@@ -22,7 +22,7 @@
   main { max-width: 640px; margin: 0 auto; padding: 24px 16px 48px; }
   h1 { margin: 0 0 4px; font-size: 1.6rem; }
   .perfil { display: flex; align-items: center; gap: 14px; margin: 0 0 24px; }
-  .avatar { width: 72px; height: 72px; border-radius: 50%; object-fit: cover; object-position: 50% 20%; flex-shrink: 0; border: 2px solid var(--accent); -webkit-tap-highlight-color: transparent; user-select: none; }
+  .avatar { width: 72px; height: 72px; border-radius: 50%; object-fit: cover; object-position: 50% 20%; flex-shrink: 0; border: 2px solid var(--accent); -webkit-tap-highlight-color: transparent; touch-action: manipulation; -webkit-touch-callout: none; user-select: none; -webkit-user-select: none; }
   .perfil h1 { margin: 0 0 4px; font-size: 1.35rem; }
   .perfil .sub { margin: 0 0 2px; font-size: .95rem; }
   .perfil .mini { margin: 0; }
@@ -306,9 +306,12 @@ const fotoInfo = document.querySelector(".fotoInfo");
 $("lightbox").addEventListener("click", () => $("lightbox").hidden = true);
 fotoInfo.addEventListener("click", () => $("lightbox").hidden = false);
 
-/* Acceso secreto: 5 toques en la foto → panel de administración */
+/* Acceso secreto: 5 toques en la foto → panel de administración.
+   pointerdown + preventDefault: cuenta el toque al instante y el navegador
+   no interpretará los toques dobles como zoom (complementa touch-action). */
 let tapsFoto = 0, timerFoto = null;
-$("foto").addEventListener("click", () => {
+$("foto").addEventListener("pointerdown", e => {
+  e.preventDefault();
   clearTimeout(timerFoto);
   tapsFoto++;
   timerFoto = setTimeout(() => { tapsFoto = 0; }, 2500);
