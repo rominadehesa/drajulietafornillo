@@ -31,6 +31,14 @@
   .tabs { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:12px; }
   .tabs button { font-size:.9rem; padding:6px 12px; }
   .tabs button[aria-pressed="true"] { background:var(--accent); border-color:var(--accent); color:#fff; }
+  #entrar { display:inline-flex; align-items:center; gap:8px; }
+  #entrar svg { flex:none; }
+  .sesion { display:flex; align-items:center; gap:8px; }
+  .sesion img { width:28px; height:28px; border-radius:50%; border:1px solid var(--border); object-fit:cover; }
+  .sesion span { font-size:.9rem; color:var(--muted); }
+  .resumen { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:4px; }
+  .resumen span { background:var(--card); border:1px solid var(--border); border-radius:999px; padding:4px 12px; font-size:.85rem; color:var(--muted); }
+  .dia { font-weight:600; font-size:.95rem; color:var(--muted); margin:18px 0 6px; }
   .top { display:flex; justify-content:space-between; align-items:center; gap:8px; margin-bottom:12px; }
   .fila { display:flex; justify-content:space-between; gap:8px; flex-wrap:wrap; align-items:baseline; }
   .cuando { font-weight:600; }
@@ -38,6 +46,7 @@
   .estado.Pendiente { border-color:#d4a017; color:#d4a017; }
   .estado.Confirmado { border-color:var(--accent); color:var(--accent); }
   .estado.Cancelado { border-color:var(--danger); color:var(--danger); }
+  .estado.Libre { border-color:var(--muted); color:var(--muted); }
   .acciones { display:flex; gap:8px; flex-wrap:wrap; margin-top:10px; }
   #crearTurno .campos { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
   #crearTurno .campos input { width:auto; flex:1; min-width:130px; }
@@ -52,23 +61,23 @@
 
   <div id="login" class="card">
     <p class="muted">Acceso reservado a la doctora. Se entra con la cuenta de Google autorizada.</p>
-    <button class="primary" id="entrar">Entrar con Google</button>
+    <button class="primary" id="entrar">
+      <svg width="18" height="18" viewBox="0 0 48 48" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
+      Entrar con Google
+    </button>
     <p class="error" id="loginError"></p>
   </div>
 
   <div id="panel" hidden>
     <div class="top">
       <button id="volver">← Volver</button>
-      <button id="salir" hidden>Salir</button>
-      <span class="muted">Acceso privado</span>
+      <div class="sesion" id="sesion">
+        <img id="avatar" alt="Foto de la cuenta">
+        <span id="quien"></span>
+        <button id="salir">Salir</button>
+      </div>
     </div>
-    <div class="tabs" id="tabs" role="tablist">
-      <button role="tab" data-f="disponibles" data-nombre="Disponibles" aria-pressed="true">Disponibles</button>
-      <button role="tab" data-f="Pendiente" data-nombre="Pendientes" aria-pressed="false">Pendientes</button>
-      <button role="tab" data-f="Confirmado" data-nombre="Confirmados" aria-pressed="false">Confirmados</button>
-      <button role="tab" data-f="Cancelado" data-nombre="Cancelados" aria-pressed="false">Cancelados</button>
-      <button role="tab" data-f="todos" data-nombre="Todos" aria-pressed="false">Todos</button>
-    </div>
+    <div class="resumen" id="resumen"></div>
     <p class="error" id="panelError"></p>
     <div id="lista"></div>
   </div>
@@ -88,13 +97,16 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-app.js";
 import { getFirestore, collection, doc, query, onSnapshot, updateDoc, writeBatch, addDoc }
   from "https://www.gstatic.com/firebasejs/11.0.2/firebase-firestore.js";
-import { getAuth, GoogleAuthProvider, onAuthStateChanged, signInWithPopup, signOut }
+import { getAuth, GoogleAuthProvider, inMemoryPersistence, onAuthStateChanged, setPersistence, signInWithPopup, signOut }
   from "https://www.gstatic.com/firebasejs/11.0.2/firebase-auth.js";
 import { firebaseConfig, lugar } from "./config.js";
 
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 const auth = getAuth(app);
+// "Siempre cerrada": la sesión vive solo en memoria. Al cerrar o recargar la
+// página el panel vuelve al login y hay que entrar de nuevo (un solo toque).
+setPersistence(auth, inMemoryPersistence).catch(() => {});
 const $ = id => document.getElementById(id);
 
 let turnos = [];
@@ -156,14 +168,17 @@ function pararEscucha() {
 }
 
 // Según la sesión: logueada → panel; NO logueada → solo el login.
-// onAuthStateChanged también mantiene la sesión al recargar la página.
 onAuthStateChanged(auth, user => {
   pararEscucha();
   $("login").hidden = !!user;
   $("panel").hidden = !user;
   $("crearTurno").hidden = !user;
-  $("salir").hidden = !user;
-  if (user) escucharTurnos(); else { turnos = []; render(); }
+  if (user) {
+    // Chip de sesión: foto y nombre de la cuenta de Google conectada.
+    $("avatar").src = user.photoURL || "./icons/perfil.jpg";
+    $("quien").textContent = user.displayName || user.email;
+    escucharTurnos();
+  } else { turnos = []; render(); }
 });
 
 /* ---------- Utilidades ---------- */
@@ -267,51 +282,47 @@ $("crear").onclick = async () => {
 };
 
 /* ---------- Vista ---------- */
-let filtro = "disponibles";
-
-function matchFiltro(t, f) {
-  const tienePaciente = !!String(t.paciente ?? "").trim();
-  if (f === "todos") return true;
-  if (f === "disponibles") return !tienePaciente && t.estado !== "Cancelado";
-  if (f === "Pendiente") return tienePaciente && t.estado === "Pendiente";
-  if (f === "Confirmado") return t.estado === "Confirmado";
-  return t.estado === "Cancelado";
-}
-function boton(texto, clase, onClick) {
-  const b = document.createElement("button");
-  b.textContent = texto;
-  if (clase) b.className = clase;
-  b.onclick = onClick;
-  return b;
-}
-
-function linea(texto) {
-  const p = document.createElement("div");
-  p.className = "muted";
-  p.textContent = texto;   // textContent: los datos del paciente nunca se interpretan como HTML
-  return p;
-}
+// Un solo listado (sin filtros): turnos ordenados y agrupados por día.
+// Arriba, un resumen con contadores: cúantos libres/pendientes/confirmados/cancelados.
+function libre(t) { return !String(t.paciente ?? "").trim() && t.estado !== "Cancelado"; }
 
 function render() {
-  // Solapa activa + contador de cada solapa
-  for (const b of document.querySelectorAll("#tabs button")) {
-    const f = b.dataset.f;
-    b.setAttribute("aria-pressed", String(f === filtro));
-    b.textContent = `${b.dataset.nombre} (${turnos.filter(t => matchFiltro(t, f)).length})`;
+  // Chips de resumen
+  const libres = turnos.filter(libre).length;
+  const pend = turnos.filter(t => t.paciente && t.estado === "Pendiente").length;
+  const conf = turnos.filter(t => t.estado === "Confirmado").length;
+  const canc = turnos.filter(t => t.estado === "Cancelado").length;
+  const resumen = $("resumen");
+  resumen.innerHTML = "";
+  for (const [v, txt] of [[libres, "libres"], [pend, "pendientes"], [conf, "confirmados"], [canc, "cancelados"]]) {
+    const chip = document.createElement("span");
+    chip.textContent = `${v} ${txt}`;
+    resumen.appendChild(chip);
   }
+
   const visibles = turnos
-    .filter(t => matchFiltro(t, filtro))
+    .slice()
     .sort((a, b) => (a.fecha + a.hora).localeCompare(b.fecha + b.hora));
 
   const lista = $("lista");
   lista.innerHTML = "";
   if (!visibles.length) {
-    const nombre = document.querySelector(`#tabs button[data-f="${filtro}"]`).dataset.nombre.toLowerCase();
-    lista.appendChild(linea(filtro === "todos" ? "No hay turnos." : `No hay turnos ${nombre}.`));
+    lista.appendChild(linea("No hay turnos cargados."));
     return;
   }
 
+  // Encabezado por día: se repite cuando cambia la fecha entre cards seguidas.
+  let diaPrevio = null;
   for (const t of visibles) {
+    const dl = fechaLarga(t.fecha);
+    if (dl !== diaPrevio) {
+      diaPrevio = dl;
+      const dia = document.createElement("div");
+      dia.className = "dia";
+      dia.textContent = dl;
+      lista.appendChild(dia);
+    }
+
     const card = document.createElement("div");
     card.className = "card" + (t.estado === "Cancelado" ? " cancelado" : "");
 
@@ -319,10 +330,10 @@ function render() {
     fila.className = "fila";
     const cuando = document.createElement("span");
     cuando.className = "cuando";
-    cuando.textContent = `${fechaLarga(t.fecha)} · ${t.hora} hs`;
+    cuando.textContent = `${t.hora} hs`;
     const estado = document.createElement("span");
-    estado.className = "estado " + t.estado;
-    estado.textContent = t.estado;
+    estado.className = "estado " + (libre(t) ? "Libre" : t.estado);
+    estado.textContent = libre(t) ? "Libre" : t.estado;
     fila.append(cuando, estado);
     card.appendChild(fila);
 
@@ -350,10 +361,21 @@ function render() {
   }
 }
 
-for (const b of document.querySelectorAll("#tabs button")) {
-  b.onclick = () => { filtro = b.dataset.f; render(); };
-}
 $("volver").onclick = () => window.location.href = "./";
+function boton(texto, clase, onClick) {
+  const b = document.createElement("button");
+  b.textContent = texto;
+  if (clase) b.className = clase;
+  b.onclick = onClick;
+  return b;
+}
+
+function linea(texto) {
+  const p = document.createElement("div");
+  p.className = "muted";
+  p.textContent = texto;   // textContent: los datos del paciente nunca se interpretan como HTML
+  return p;
+}
 </script>
 <script>
   if ("serviceWorker" in navigator) {
