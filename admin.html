@@ -48,8 +48,12 @@
   .estado.Cancelado { border-color:var(--danger); color:var(--danger); }
   .estado.Libre { border-color:var(--muted); color:var(--muted); }
   .acciones { display:flex; gap:8px; flex-wrap:wrap; margin-top:10px; }
-  #crearTurno .campos { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
-  #crearTurno .campos input { width:auto; flex:1; min-width:130px; }
+  .menuVistas { display:flex; gap:8px; margin-bottom:12px; }
+  .menuVistas button { flex:1; padding:12px 8px; font-size:1rem; font-weight:600; border-radius:12px; }
+  .menuVistas button.activa { background:var(--accent); border-color:var(--accent); color:#fff; }
+  .ok { color:var(--accent); font-size:.9rem; margin-top:8px; min-height:1.2em; }
+  #vistaCrear .campos { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+  #vistaCrear .campos input { width:auto; flex:1; min-width:130px; }
   .muted { color:var(--muted); font-size:.9rem; }
   .error { color:var(--danger); font-size:.9rem; margin-top:8px; min-height:1.2em; }
   [hidden] { display:none !important; }
@@ -77,19 +81,31 @@
         <button id="salir">Salir</button>
       </div>
     </div>
-    <div class="resumen" id="resumen"></div>
-    <p class="error" id="panelError"></p>
-    <div id="lista"></div>
-  </div>
 
-  <div id="crearTurno" class="card" hidden>
-    <label for="nuevaFecha">Crear turno disponible (aparece en el formulario público)</label>
-    <div class="campos">
-      <input id="nuevaFecha" type="date" aria-label="Fecha del turno">
-      <input id="nuevaHora" type="time" aria-label="Hora del turno">
-      <button class="primary" id="crear">Crear turno</button>
+    <div class="menuVistas">
+      <button id="verTurnos" class="activa">🗓 Tus turnos</button>
+      <button id="verCrear">➕ Crear turnos</button>
     </div>
-    <p class="error" id="crearError"></p>
+
+    <section id="vistaTurnos">
+      <div class="resumen" id="resumen"></div>
+      <p class="error" id="panelError"></p>
+      <div id="lista"></div>
+    </section>
+
+    <section id="vistaCrear" hidden>
+      <div class="card">
+        <label for="nuevaFecha">Elegí el día y la hora del turno nuevo</label>
+        <div class="campos">
+          <input id="nuevaFecha" type="date" aria-label="Día del turno">
+          <input id="nuevaHora" type="time" aria-label="Hora del turno">
+          <button class="primary" id="crear">Agregar turno</button>
+        </div>
+        <p class="ok" id="crearOk"></p>
+        <p class="error" id="crearError"></p>
+      </div>
+      <p class="muted">El turno nuevo queda "Libre" en Tus turnos y aparece al toque en el formulario público, listo para que lo reserve una paciente.</p>
+    </section>
   </div>
 </main>
 
@@ -172,14 +188,25 @@ onAuthStateChanged(auth, user => {
   pararEscucha();
   $("login").hidden = !!user;
   $("panel").hidden = !user;
-  $("crearTurno").hidden = !user;
   if (user) {
     // Chip de sesión: foto y nombre de la cuenta de Google conectada.
     $("avatar").src = user.photoURL || "./icons/perfil.jpg";
     $("quien").textContent = user.displayName || user.email;
+    ver("turnos");   // siempre arranca en "Tus turnos"
     escucharTurnos();
   } else { turnos = []; render(); }
 });
+
+/* ---------- Vistas del panel (Tus turnos / Crear turnos) ---------- */
+function ver(v) {   // "turnos" o "crear"
+  $("verTurnos").classList.toggle("activa", v === "turnos");
+  $("verCrear").classList.toggle("activa", v === "crear");
+  $("vistaTurnos").hidden = v !== "turnos";
+  $("vistaCrear").hidden = v !== "crear";
+  if (v === "turnos") render();
+}
+$("verTurnos").onclick = () => ver("turnos");
+$("verCrear").onclick = () => { $("crearOk").textContent = ""; ver("crear"); };
 
 /* ---------- Utilidades ---------- */
 const esFechaIso = f => /^\d{4}-\d{2}-\d{2}$/.test(f);
@@ -275,6 +302,8 @@ $("crear").onclick = async () => {
       hora: `${String(hh).padStart(2, "0")}:${String(mm).padStart(2, "0")}`,
     });
     $("nuevaHora").value = "";   // queda listo para cargar el siguiente horario
+    //Feedback: se queda en el mismo formulario, útil para cargar varios seguidos.
+    $("crearOk").textContent = "Turno agregado ✔ Ya está como Libre en Tus turnos.";
   } catch (e) {
     console.error(e);
     $("crearError").textContent = "No se pudo crear el turno (¿reglas publicadas?).";
