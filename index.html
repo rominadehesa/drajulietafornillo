@@ -1,0 +1,334 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Turnos - Dra. Julieta Fornillo</title>
+<meta name="description" content="Reservá tu turno del consultorio online, sin llamadas.">
+<meta name="theme-color" content="#128c7e">
+<link rel="manifest" href="./manifest.webmanifest">
+<link rel="icon" href="./icons/icon-192.png">
+<link rel="apple-touch-icon" href="./icons/icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Turnos">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<style>
+  :root { --bg:#f6f7f9; --card:#fff; --text:#1c2430; --muted:#6b7686; --accent:#128c7e; --accent-text:#fff; --border:#dde2e8; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#12161b; --card:#1b2129; --text:#e8ecf1; --muted:#97a3b3; --border:#2d3643; }
+  }
+  * { box-sizing: border-box; }
+  body { margin:0; font-family: system-ui, -apple-system, "Segoe UI", sans-serif; background:var(--bg); color:var(--text); line-height:1.5; }
+  main { max-width: 640px; margin: 0 auto; padding: 24px 16px 48px; }
+  h1 { margin: 0 0 4px; font-size: 1.6rem; }
+  .perfil { display: flex; align-items: center; gap: 14px; margin: 0 0 24px; }
+  .avatar { width: 72px; height: 72px; border-radius: 50%; object-fit: cover; object-position: 50% 20%; flex-shrink: 0; border: 2px solid var(--accent); -webkit-tap-highlight-color: transparent; user-select: none; }
+  .perfil h1 { margin: 0 0 4px; font-size: 1.35rem; }
+  .perfil .sub { margin: 0 0 2px; font-size: .95rem; }
+  .perfil .mini { margin: 0; }
+  .sub { color: var(--muted); margin: 0 0 24px; }
+  .mini { color: var(--muted); font-size: .8rem; margin: -16px 0 24px; }
+  section { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 16px; margin-bottom: 16px; }
+  h2 { font-size: 1rem; margin: 0 0 12px; }
+  .grid { display: flex; flex-wrap: wrap; gap: 8px; }
+  button.chip { border: 1px solid var(--border); background: transparent; color: var(--text); padding: 8px 12px; border-radius: 8px; cursor: pointer; font: inherit; }
+  button.chip:hover { border-color: var(--accent); }
+  button.chip[aria-pressed="true"] { background: var(--accent); color: var(--accent-text); border-color: var(--accent); }
+  label { display:block; font-size:.9rem; margin: 12px 0 4px; }
+  input, textarea { width:100%; padding:10px; border:1px solid var(--border); border-radius:8px; background:transparent; color:var(--text); font:inherit; }
+  #enviar { width:100%; margin-top:16px; padding:14px; border:0; border-radius:10px; background:var(--accent); color:var(--accent-text); font:inherit; font-weight:600; cursor:pointer; }
+  #enviar:disabled { opacity:.5; cursor:not-allowed; }
+  .muted { color: var(--muted); font-size:.9rem; }
+  #preview { white-space: pre-wrap; background: var(--bg); border-radius: 8px; padding: 10px; font-size:.9rem; margin-top:12px; }
+  ul.info { list-style: none; margin: 0; padding: 0; }
+  .tabs { display: flex; gap: 8px; margin-bottom: 16px; }
+  .tabs button { flex: 1; padding: 12px; border: 1px solid var(--border); background: transparent; color: var(--text); border-radius: 10px; font: inherit; cursor: pointer; }
+  .tabs button[aria-pressed="true"] { background: var(--accent); color: var(--accent-text); border-color: var(--accent); }
+  [hidden] { display: none !important; }
+  .info li { display: flex; gap: 10px; align-items: flex-start; padding: 8px 0; border-bottom: 1px solid var(--border); }
+  .info li:last-child { border-bottom: 0; padding-bottom: 0; }
+  .info .icono { font-size: 1.2rem; line-height: 1.35; }
+  .info strong { display: block; font-size: .85rem; }
+  .info div { flex: 1; font-size: .95rem; }
+  .info a { color: var(--accent); text-decoration: none; }
+  .info a:hover { text-decoration: underline; }
+  .fotoInfo { display: block; width: 100%; max-width: 420px; margin: 0 auto 14px; border-radius: 12px; cursor: zoom-in; }
+  #lightbox { position: fixed; inset: 0; background: rgba(0,0,0,.88); display: flex; align-items: center; justify-content: center; padding: 16px; z-index: 9; cursor: zoom-out; }
+  #lightbox img { max-width: 100%; max-height: 100%; border-radius: 10px; }
+</style>
+</head>
+<body>
+<main>
+  <header class="perfil">
+    <img class="avatar" id="foto" src="./icons/perfil.jpg" alt="Dra. Julieta Fornillo">
+    <div>
+      <h1 id="nombre"></h1>
+      <p class="sub" id="detalle"></p>
+      <p class="mini" id="pie"></p>
+    </div>
+  </header>
+
+  <nav class="tabs" id="solapas" role="tablist" aria-label="Secciones">
+    <button type="button" role="tab" data-v="reservar" aria-pressed="true">Reservar turno</button>
+    <button type="button" role="tab" data-v="info" aria-pressed="false">Información</button>
+  </nav>
+
+  <section id="v-info" hidden>
+    <h2>Información</h2>
+    <img class="fotoInfo" src="./icons/perfil.jpg" alt="Dra. Julieta Fornillo" title="Tocá para ver en grande">
+    <ul class="info">
+      <li><span class="icono">🩺</span><div><strong>Atención</strong>Medicina integral para adolescentes y adultos.</div></li>
+      <li><span class="icono">📍</span><div><strong>Dónde</strong><a href="https://maps.google.com/?q=Aveleyra%20423%2C%20Rauch%2C%20Buenos%20Aires" target="_blank" rel="noopener">Aveleyra 423, Rauch</a> — consultorio.</div></li>
+      <li><span class="icono">💳</span><div><strong>Aranceles</strong>Atención particular. Consultá el valor de la consulta por <a href="https://wa.me/5492494530227?text=Hola,%20quisiera%20saber%20el%20valor%20de%20la%20consulta" target="_blank" rel="noopener">WhatsApp</a>.</div></li>
+      <li><span class="icono">🗓️</span><div><strong>Horarios</strong>Según disponibilidad: los días y horarios con turnos libres aparecen en la solapa "Reservar turno".</div></li>
+    </ul>
+  </section>
+
+  <div id="v-reservar">
+  <section>
+    <h2>1. Elegí un día</h2>
+    <div class="grid" id="dias"><span class="muted">Cargando...</span></div>
+  </section>
+
+  <section>
+    <h2>2. Elegí un horario</h2>
+    <div class="grid" id="horas"><span class="muted">Primero elegí un día.</span></div>
+  </section>
+
+  <section>
+    <h2>3. Tus datos</h2>
+    <label for="paciente">Nombre y apellido</label>
+    <input id="paciente" autocomplete="name" maxlength="100">
+    <label for="telefono">Tu WhatsApp, con código de área (opcional, para confirmarte el turno)</label>
+    <input id="telefono" type="tel" autocomplete="tel" placeholder="11 2345 6789" maxlength="30">
+    <label for="cobertura">Obra social / prepaga (opcional)</label>
+    <input id="cobertura" maxlength="200">
+    <label for="motivo">Motivo de la consulta (opcional)</label>
+    <textarea id="motivo" rows="2" maxlength="300"></textarea>
+    <div id="preview" class="muted">El mensaje se va a mostrar acá.</div>
+    <button id="enviar" disabled>Reservar y enviar por WhatsApp</button>
+  </section>
+  </div>
+</main>
+<div id="lightbox" hidden><img src="./icons/perfil.jpg" alt="Dra. Julieta Fornillo"></div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-app.js";
+import { getFirestore, collection, doc, getDocs, writeBatch }
+  from "https://www.gstatic.com/firebasejs/11.0.2/firebase-firestore.js";
+import { firebaseConfig } from "./config.js";
+
+/* ============ CONFIGURACIÓN: editá solo esto ============ */
+// Modelo real (colección "turnos", la que ya usás):
+//  - Turno DISPONIBLE: un doc con fecha y hora, cargado a mano (sin paciente).
+//  - Reservar: marcar ese MISMO doc con los datos del paciente.
+//  - Se crea además un "candado" en la colección "slots" (ID = el ID del doc de
+//    turnos): si el candado ya existe, es que alguien se adelantó → el lote
+//    falla completo, no queda nada a medias, y se avisa "ya reservado".
+//  - Al cancelar desde el panel, el candado se borra y el horario vuelve.
+const CONFIG = {
+  nombre: "Dra. Julieta Fornillo",
+  especialidad: "Atención médica integral",
+  paraQuien: "Adolescentes y adultos",
+  lugar: "Aveleyra 423, Rauch",
+  telefono: "5492494530227",   // tu WhatsApp: código país + área + número, sin +, espacios ni 0/15
+  matricula: "MN 213660 · MP 82723",
+};
+/* ========================================================= */
+
+const db = getFirestore(initializeApp(firebaseConfig));
+const $ = id => document.getElementById(id);
+let diaSel = null;      // fecha tal como está en el doc (ej. "Jueves 05 de Nov")
+let horaSel = null;
+let docSel = null;      // ID del doc de "turnos" que corresponde a día + hora
+let turnosLibres = [];  // [{ id, fecha, hora }] disponibles ahora mismo
+
+$("nombre").textContent = CONFIG.nombre;
+$("detalle").textContent = CONFIG.especialidad + " · " + CONFIG.paraQuien;
+$("pie").textContent = CONFIG.lugar + " · " + CONFIG.matricula;
+document.title = "Turnos - " + CONFIG.nombre;
+
+const toMin = s => { const [h, m] = String(s).split(":").map(Number); return h*60 + m; };
+const esHora = h => /^\d{1,2}:\d{2}$/.test(String(h));
+const textoBonito = t => { t = String(t ?? "").trim(); return t.charAt(0).toUpperCase() + t.slice(1); };
+
+const MESES = { ene: 0, feb: 1, mar: 2, abr: 3, may: 4, jun: 5, jul: 6, ago: 7, sep: 8, oct: 9, nov: 10, dic: 11 };
+
+// Ordena fechas escritas como texto ("Jueves 05 de Nov"): busca el día y el mes.
+// Si esa fecha ya pasó este año, la considera del año próximo. Lo que no se
+// entiende queda al final, en orden alfabético.
+function ordenFecha(txt) {
+  const m = /(\d{1,2})\s*de\s*([a-z]{3,})/i.exec(String(txt));
+  if (!m) return Infinity;
+  const mes = MESES[m[2].slice(0, 3).toLowerCase()];
+  const dia = Number(m[1]);
+  if (mes === undefined || !dia) return Infinity;
+  const ahora = new Date();
+  let d = new Date(ahora.getFullYear(), mes, dia, 23, 59);
+  if (d.getTime() < Date.now() - 36 * 36e5) d = new Date(ahora.getFullYear() + 1, mes, dia, 23, 59);
+  return d.getTime();
+}
+
+async function cargarDatos() {
+  // 1) Candados: turnos cuya reserva quedó efectivamente tomada.
+  let ocupados = new Set();
+  try {
+    const snap = await getDocs(collection(db, "slots"));
+    ocupados = new Set(snap.docs.map(d => d.id));
+  } catch (e) {
+    console.error("No se pudieron leer los horarios ocupados", e);
+  }
+  // 2) Turnos disponibles: los docs que cargás a mano y no tienen paciente
+  //    (los cancelados vuelven a estar disponibles porque estado = "Cancelado").
+  try {
+    const snap = await getDocs(collection(db, "turnos"));
+    turnosLibres = snap.docs.map(d => ({ id: d.id, ...d.data() }))
+      .filter(t => String(t.fecha ?? "").trim() && esHora(t.hora)
+        && (!String(t.paciente ?? "").trim() || t.estado === "Cancelado")
+        && !ocupados.has(t.id))
+      .map(t => ({ id: t.id, fecha: String(t.fecha).trim(), hora: String(t.hora) }));
+  } catch (e) {
+    console.error("No se pudieron leer los turnos", e);
+    turnosLibres = [];
+  }
+}
+
+// Días que tienen al menos un turno libre, ordenados por fecha real si se entiende
+function diasDisponibles() {
+  const grupos = {};
+  for (const t of turnosLibres) (grupos[t.fecha] ||= []).push(t);
+  return Object.entries(grupos)
+    .map(([fecha, lista]) => ({ fecha, orden: ordenFecha(fecha) }))
+    .sort((a, b) => (a.orden - b.orden) || a.fecha.localeCompare(b.fecha));
+}
+
+// Horarios libres del día elegido (si hay dos docs con la misma hora, queda uno)
+function horasDe(fecha) {
+  const elegidos = new Map();
+  const delDia = turnosLibres.filter(t => t.fecha === fecha).sort((a, b) => toMin(a.hora) - toMin(b.hora));
+  for (const t of delDia) if (!elegidos.has(t.hora)) elegidos.set(t.hora, t.id);
+  return [...elegidos].map(([hora, id]) => ({ hora, id }));
+}
+
+function renderDias() {
+  const cont = $("dias");
+  cont.innerHTML = "";
+  const dias = diasDisponibles();
+  for (const { fecha } of dias) {
+    const b = document.createElement("button");
+    b.className = "chip"; b.textContent = textoBonito(fecha);
+    b.setAttribute("aria-pressed", String(diaSel === fecha));
+    b.onclick = () => { diaSel = fecha; horaSel = null; docSel = null; renderDias(); renderHoras(); actualizar(); };
+    cont.appendChild(b);
+  }
+  if (!dias.length) cont.innerHTML = '<span class="muted">No hay horarios disponibles por ahora.</span>';
+}
+
+function renderHoras() {
+  const cont = $("horas");
+  cont.innerHTML = "";
+  if (!diaSel) { cont.innerHTML = '<span class="muted">Primero elegí un día.</span>'; return; }
+  for (const { hora, id } of horasDe(diaSel)) {
+    const b = document.createElement("button");
+    b.className = "chip"; b.textContent = hora + " hs";
+    b.setAttribute("aria-pressed", String(hora === horaSel));
+    b.onclick = () => { horaSel = hora; docSel = id; renderHoras(); actualizar(); };
+    cont.appendChild(b);
+  }
+}
+
+function armarMensaje() {
+  const nombre = $("paciente").value.trim();
+  const cob = $("cobertura").value.trim();
+  const motivo = $("motivo").value.trim();
+  let msg = `Hola ${CONFIG.nombre}, quisiera solicitar un turno para el ${textoBonito(diaSel).toLowerCase()} a las ${horaSel} hs.\n\nNombre: ${nombre}`;
+  if (cob) msg += `\nCobertura: ${cob}`;
+  if (motivo) msg += `\nMotivo: ${motivo}`;
+  msg += "\n\n¿Me confirma disponibilidad? Gracias.";
+  return msg;
+}
+
+function actualizar() {
+  const listo = docSel && horaSel && $("paciente").value.trim();
+  $("enviar").disabled = !listo;
+  $("preview").textContent = listo ? armarMensaje() : "El mensaje se va a mostrar acá cuando completes día, horario y nombre.";
+}
+
+["paciente", "telefono", "cobertura", "motivo"].forEach(id => $(id).addEventListener("input", actualizar));
+
+$("enviar").onclick = async () => {
+  const btn = $("enviar");
+  const id = docSel, fecha = diaSel, hora = horaSel;
+  const datos = {
+    paciente: $("paciente").value.trim(),
+    celular: $("telefono").value.replace(/\D/g, ""),   // mismo campo que los docs existentes
+    cobertura: $("cobertura").value.trim(),
+    motivo: $("motivo").value.trim(),
+    estado: "Pendiente",
+  };
+  btn.disabled = true; btn.textContent = "Reservando...";
+  try {
+    // El candado en "slots" usa el ID del doc elegido: si ya existía, es que
+    // alguien reservó primero → el lote falla completo (no queda nada a medias).
+    const batch = writeBatch(db);
+    batch.set(doc(db, "slots", id), { fecha, hora });
+    batch.update(doc(db, "turnos", id), datos);
+    await batch.commit();
+  } catch (e) {
+    console.error(e);
+    alert(e.code === "permission-denied"
+      ? "Ese horario acaba de ser reservado. Elegí otro, por favor."
+      : "No se pudo reservar. Probá de nuevo en unos minutos.");
+    horaSel = null; docSel = null;
+    await cargarDatos(); renderDias(); renderHoras();
+    btn.textContent = "Reservar y enviar por WhatsApp"; actualizar();
+    return;
+  }
+  // Reservado: actualizar la vista al instante y arrancar WhatsApp.
+  const mensaje = armarMensaje();
+  turnosLibres = turnosLibres.filter(t => t.id !== id);   // el turno ya no está disponible
+  diaSel = null; horaSel = null; docSel = null;
+  renderDias(); renderHoras(); actualizar();
+  btn.textContent = "Reservado ✓ Abriendo WhatsApp...";
+  await new Promise(r => setTimeout(r, 400));
+  window.location.href = `https://wa.me/${CONFIG.telefono}?text=${encodeURIComponent(mensaje)}`;
+};
+
+/* Solapas: Reservar / Información */
+document.querySelectorAll("#solapas button").forEach(b => b.onclick = () => {
+  for (const x of document.querySelectorAll("#solapas button")) x.setAttribute("aria-pressed", String(x === b));
+  $("v-reservar").hidden = b.dataset.v !== "reservar";
+  $("v-info").hidden = b.dataset.v !== "info";
+});
+
+/* Foto en grande: tocar para abrir o cerrar */
+const fotoInfo = document.querySelector(".fotoInfo");
+$("lightbox").addEventListener("click", () => $("lightbox").hidden = true);
+fotoInfo.addEventListener("click", () => $("lightbox").hidden = false);
+
+/* Acceso secreto: 5 toques en la foto → panel de administración */
+let tapsFoto = 0, timerFoto = null;
+$("foto").addEventListener("click", () => {
+  clearTimeout(timerFoto);
+  tapsFoto++;
+  timerFoto = setTimeout(() => { tapsFoto = 0; }, 2500);
+  if (tapsFoto >= 5) {
+    tapsFoto = 0; clearTimeout(timerFoto);
+    window.location.href = "./admin.html";
+  }
+});
+
+cargarDatos().then(renderDias);
+
+// Si el navegador vuelve del WhatsApp con la página guardada en caché
+// (back-forward cache), refresca los datos para ver el estado real.
+window.addEventListener("pageshow", e => {
+  if (e.persisted) cargarDatos().then(renderDias);
+});</script>
+<script>
+  if ("serviceWorker" in navigator) {
+    window.addEventListener("load", () => navigator.serviceWorker.register("./sw.js").catch(() => {}));
+  }
+</script>
+</body>
+</html>

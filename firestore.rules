@@ -1,0 +1,74 @@
+rules_version = '2';
+
+// ================================================================
+//  TEMPORAL: abierto para pruebas, vence el 20/11/2026.
+//  Reemplazar por reglas con autenticación antes de usar datos reales.
+// ================================================================
+//
+// Modelo actual: la colección "turnos" tiene UN doc por turno que la médica
+// carga a mano (fecha y hora, sin paciente = disponible). Reservar = marcar
+// ese doc con los datos del paciente + crear un "candado" en "slots" con el
+// MISMO ID del doc, para que dos personas no se queden con el mismo horario.
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function esTexto(v, min, max) {
+      return v is string && v.size() >= min && v.size() <= max;
+    }
+
+    // ---------- 1. turnos: la base única ----------
+    match /turnos/{turnoId} {
+      function datosDeReservaValidos() {
+        let d = request.resource.data;
+        return d.fecha == resource.data.fecha        // no se puede cambiar la fecha
+            && d.hora == resource.data.hora          // ni la hora del doc
+            && esTexto(d.paciente, 1, 100)
+            && (!('celular' in d)  || esTexto(d.celular, 0, 30))
+            && (!('cobertura' in d) || esTexto(d.cobertura, 0, 200))
+            && (!('motivo' in d)   || esTexto(d.motivo, 0, 300));
+      }
+      function turnoNuevoValido() {
+        let d = request.resource.data;
+        // Doc nuevo desde el panel: solo fecha y hora, sin paciente.
+        return d.keys().hasOnly(['fecha', 'hora'])
+            && esTexto(d.fecha, 1, 60)     // la fecha va como texto ("Jueves 05 de Nov")
+            && esTexto(d.hora, 4, 5);      // HH:MM
+      }
+      // Lectura pública: el formulario necesita ver los turnos libres.
+      allow read: if true;
+      // Crear turnos disponibles desde el panel.
+      allow create: if turnoNuevoValido();
+      // Se marca el doc al reservar (update) y el panel gestiona estado.
+      allow update: if datosDeReservaValidos() || request.time < timestamp.date(2026, 11, 20);
+      // Borrar solo turnos SIN paciente (carga por error, ya vencido);
+      // hasta la fecha límite queda abierto (compatible con el modo prueba).
+      allow delete: if !('paciente' in resource.data)
+                     || request.time < timestamp.date(2026, 11, 20);
+    }
+
+    // ---------- 2. slots: el candado anti dobles reservas ----------
+    match /slots/{candadoId} {
+      function candadoValido() {
+        let d = request.resource.data;
+        return d.keys().hasOnly(['fecha', 'hora'])
+            && d.keys().hasAll(['fecha', 'hora'])
+            && esTexto(d.fecha, 1, 60)   // la fecha va tal como está en el doc
+            && esTexto(d.hora, 4, 5);    // HH:MM
+      }
+      allow read: if true;
+      // CREATE solo para docs nuevos: si el candado ya existe, el set()
+      // entra como update y esta regla lo niega → falla la reserva doble.
+      allow create: if candadoValido();
+      // TEMPORAL: delete abierto (el panel borra el candado al cancelar).
+      allow delete: if request.time < timestamp.date(2026, 11, 20);
+      // (no hay allow update)
+    }
+
+    // ---------- 3. horarios (formato de franjas, por si se usa más adelante) ----------
+    match /horarios/{id} {
+      allow read: if true;
+      // (no hay allow write → se escribe solo desde la consola)
+    }
+  }
+}

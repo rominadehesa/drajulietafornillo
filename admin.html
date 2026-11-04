@@ -1,0 +1,320 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Panel de turnos</title>
+<meta name="theme-color" content="#128c7e">
+<link rel="manifest" href="./manifest.webmanifest">
+<link rel="icon" href="./icons/icon-192.png">
+<link rel="apple-touch-icon" href="./icons/icon-192.png">
+<meta name="apple-mobile-web-app-title" content="Turnos - Panel">
+<style>
+  :root { --bg:#f6f7f9; --card:#fff; --text:#1c2430; --muted:#6b7686; --accent:#128c7e; --danger:#c0392b; --border:#dde2e8; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#12161b; --card:#1b2129; --text:#e8ecf1; --muted:#97a3b3; --border:#2d3643; }
+  }
+  * { box-sizing: border-box; }
+  body { margin:0; font-family: system-ui, -apple-system, "Segoe UI", sans-serif; background:var(--bg); color:var(--text); line-height:1.5; }
+  main { max-width: 720px; margin: 0 auto; padding: 24px 16px 48px; }
+  h1 { margin: 0 0 16px; font-size: 1.5rem; }
+  .aviso { background: #fff3cd; color: #7a5b00; border: 1px solid #d4a017; padding: 10px 12px; border-radius: 8px; font-weight: 600; margin-bottom: 12px; }
+  @media (prefers-color-scheme: dark) { .aviso { background: #3a2f07; color: #ffe08a; } }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; margin-bottom: 12px; }
+  .card.cancelado { opacity: .55; }
+  label { display:block; font-size:.9rem; margin: 10px 0 4px; }
+  input, select { width:100%; padding:10px; border:1px solid var(--border); border-radius:8px; background:transparent; color:var(--text); font:inherit; }
+  button { border:1px solid var(--border); background:transparent; color:var(--text); padding:8px 12px; border-radius:8px; cursor:pointer; font:inherit; }
+  button.primary { background:var(--accent); border-color:var(--accent); color:#fff; }
+  button.danger { color:var(--danger); border-color:var(--danger); }
+  .tabs { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:12px; }
+  .tabs button { font-size:.9rem; padding:6px 12px; }
+  .tabs button[aria-pressed="true"] { background:var(--accent); border-color:var(--accent); color:#fff; }
+  .fila { display:flex; justify-content:space-between; gap:8px; flex-wrap:wrap; align-items:baseline; }
+  .cuando { font-weight:600; }
+  .estado { font-size:.8rem; padding:2px 8px; border-radius:999px; border:1px solid var(--border); }
+  .estado.Pendiente { border-color:#d4a017; color:#d4a017; }
+  .estado.Confirmado { border-color:var(--accent); color:var(--accent); }
+  .estado.Cancelado { border-color:var(--danger); color:var(--danger); }
+  .acciones { display:flex; gap:8px; flex-wrap:wrap; margin-top:10px; }
+  #crearTurno .campos { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+  #crearTurno .campos input { width:auto; flex:1; min-width:130px; }
+  .muted { color:var(--muted); font-size:.9rem; }
+  .error { color:var(--danger); font-size:.9rem; margin-top:8px; min-height:1.2em; }
+  [hidden] { display:none !important; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Panel de turnos</h1>
+
+  <div class="aviso">⚠️ Modo de prueba: panel sin protección. No cargar datos reales de pacientes.</div>
+
+  <div id="panel">
+    <div class="tabs" id="tabs" role="tablist">
+      <button role="tab" data-f="disponibles" data-nombre="Disponibles" aria-pressed="true">Disponibles</button>
+      <button role="tab" data-f="Pendiente" data-nombre="Pendientes" aria-pressed="false">Pendientes</button>
+      <button role="tab" data-f="Confirmado" data-nombre="Confirmados" aria-pressed="false">Confirmados</button>
+      <button role="tab" data-f="Cancelado" data-nombre="Cancelados" aria-pressed="false">Cancelados</button>
+      <button role="tab" data-f="todos" data-nombre="Todos" aria-pressed="false">Todos</button>
+    </div>
+    <p class="error" id="panelError"></p>
+    <div id="lista"></div>
+  </div>
+
+  <div id="crearTurno" class="card">
+    <label for="nuevaFecha">Crear turno disponible (aparece en el formulario público)</label>
+    <div class="campos">
+      <input id="nuevaFecha" type="date" aria-label="Fecha del turno">
+      <input id="nuevaHora" type="time" aria-label="Hora del turno">
+      <button class="primary" id="crear">Crear turno</button>
+    </div>
+    <p class="error" id="crearError"></p>
+  </div>
+</main>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-app.js";
+import { getFirestore, collection, doc, query, onSnapshot, updateDoc, writeBatch, addDoc }
+  from "https://www.gstatic.com/firebasejs/11.0.2/firebase-firestore.js";
+import { firebaseConfig, lugar } from "./config.js";
+
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+const $ = id => document.getElementById(id);
+
+let turnos = [];
+let dejarDeEscuchar = null;
+
+/* ---------- Escucha de turnos (todo el acceso de lectura del panel está acá) ----------
+   MODO DE PRUEBA, SIN LOGIN. La lectura vive solo en escucharTurnos() / pararEscucha()
+   para que al sumar el login alcance con reconectar la escucha y no tocar el resto.
+
+   PARA VOLVER AL LOGIN MÁS ADELANTE:
+   1. Volver a importar firebase-auth.js y crear auth = getAuth(app).
+   2. Reponer en el HTML el <div id="login"> y el botón "Salir" (en la carpeta
+      base quedaron quitados en esta versión temporal).
+   3. Reemplazar la llamada escucharTurnos() de más abajo por:
+      onAuthStateChanged(auth, user => {
+        $("login").hidden = !!user; $("panel").hidden = !user;
+        pararEscucha();
+        if (user) escucharTurnos(); else { turnos = []; render(); }
+      });
+   4. En firestore.rules, volver a la versión con esAdmin(). */
+function escucharTurnos() {
+  // Escucha en tiempo real: si entra una reserva nueva, aparece sola.
+  // Sin orderBy en la consulta: Firestore descartaría los docs cargados a mano
+  // que falte fecha u hora. El orden se hace en render(), que sí los tolera.
+  dejarDeEscuchar = onSnapshot(
+    query(collection(db, "turnos")),
+    snap => {
+      $("panelError").textContent = "";
+      turnos = snap.docs.map(d => normalizar({ id: d.id, ...d.data() }));
+      render();
+    },
+    () => { $("panelError").textContent = "No se pudieron leer los turnos (¿reglas vencidas o bloqueadas?). Recargá la página."; }
+  );
+}
+function pararEscucha() {
+  if (dejarDeEscuchar) { dejarDeEscuchar(); dejarDeEscuchar = null; }
+}
+
+// MODO SIN LOGIN: arranca la escucha directo.
+escucharTurnos();
+
+/* ---------- Utilidades ---------- */
+const esFechaIso = f => /^\d{4}-\d{2}-\d{2}$/.test(f);
+
+// Acepta turnos cargados a mano con otros nombres de campo (celular) o sin estado.
+function normalizar(t) {
+  return {
+    ...t,
+    paciente: String(t.paciente ?? ""),
+    telefono: String(t.telefono ?? t.celular ?? ""),   // celular puede venir como número
+    fecha: String(t.fecha ?? ""),
+    hora: String(t.hora ?? ""),
+    estado: t.estado || "Pendiente",
+  };
+}
+
+function fechaLarga(fecha) {
+  // Si la fecha no está en formato AAAA-MM-DD (por ejemplo "Jueves 05 de Nov"), se muestra tal cual.
+  if (!esFechaIso(fecha)) return fecha || "Sin fecha";
+  const [y, m, d] = fecha.split("-").map(Number);
+  const t = new Date(y, m - 1, d).toLocaleDateString("es-AR", { weekday: "long", day: "numeric", month: "long" });
+  return t.charAt(0).toUpperCase() + t.slice(1);
+}
+
+function numeroWa(tel) {
+  let n = String(tel || "").replace(/\D/g, "");
+  if (n.length === 10) n = "549" + n;   // área + número sin código de país
+  return n.length >= 11 ? n : "";
+}
+
+function urlWhatsApp(t, tipo) {
+  const n = numeroWa(t.telefono);
+  if (!n) return "";
+  const cuando = `${fechaLarga(t.fecha).toLowerCase()} a las ${t.hora} hs`;
+  const msg = tipo === "cancelar"
+    ? `Hola ${t.paciente}, tuve que cancelar tu turno del ${cuando}. ¿Querés que lo reprogramemos? Disculpá las molestias.`
+    : `Hola ${t.paciente}, te confirmo tu turno del ${cuando}. ${lugar}. ¡Te espero!`;
+  return `https://wa.me/${n}?text=${encodeURIComponent(msg)}`;
+}
+
+/* ---------- Acciones ---------- */
+async function confirmar(t) {
+  const url = urlWhatsApp(t, "confirmar");
+  if (url) window.open(url, "_blank", "noopener"); // se abre en el clic, antes de esperar a Firebase
+  try { await updateDoc(doc(db, "turnos", t.id), { estado: "Confirmado" }); }
+  catch (e) { $("panelError").textContent = "No se pudo confirmar. Probá de nuevo."; }
+}
+
+async function cancelar(t) {
+  if (!confirm(`¿Cancelar el turno de ${t.paciente}? El horario va a quedar libre.`)) return;
+  const url = urlWhatsApp(t, "cancelar");
+  if (url) window.open(url, "_blank", "noopener");
+  try {
+    const batch = writeBatch(db);
+    batch.update(doc(db, "turnos", t.id), { estado: "Cancelado" });
+    batch.delete(doc(db, "slots", t.id)); // libera el candado del horario (ID = doc de "turnos")
+    await batch.commit();
+  } catch (e) { $("panelError").textContent = "No se pudo cancelar. Probá de nuevo."; }
+}
+
+async function eliminar(t) {
+  const msg = t.paciente
+    ? `¿Eliminar definitivamente el registro de ${t.paciente}?`
+    : `¿Eliminar el turno disponible del ${fechaLarga(t.fecha)} a las ${t.hora} hs?`;
+  if (!confirm(msg)) return;
+  try {
+    const batch = writeBatch(db);
+    batch.delete(doc(db, "turnos", t.id));
+    batch.delete(doc(db, "slots", t.id)); // borra el candado si es que existía
+    await batch.commit();
+  } catch (e) { $("panelError").textContent = "No se pudo eliminar."; }
+}
+
+/* ---------- Crear turno disponible ---------- */
+// Convierte la fecha elegida al formato de los docs cargados a mano: "Jueves 05 de Nov"
+function fechaComoDoc(d) {
+  const dia = d.toLocaleDateString("es-AR", { weekday: "long" });               // "jueves"
+  const num = String(d.getDate()).padStart(2, "0");
+  const mes = d.toLocaleDateString("es-AR", { month: "short" }).replace(".", "");  // "nov."
+  const cap = s => s.charAt(0).toUpperCase() + s.slice(1);
+  return `${cap(dia)} ${num} de ${cap(mes)}`;
+}
+
+$("crear").onclick = async () => {
+  $("crearError").textContent = "";
+  const fecha = $("nuevaFecha").value, hora = $("nuevaHora").value;
+  if (!fecha || !hora) { $("crearError").textContent = "Elegí fecha y hora."; return; }
+  const [y, m, d] = fecha.split("-").map(Number);
+  const [hh, mm] = hora.split(":").map(Number);
+  try {
+    await addDoc(collection(db, "turnos"), {
+      fecha: fechaComoDoc(new Date(y, m - 1, d)),
+      hora: `${String(hh).padStart(2, "0")}:${String(mm).padStart(2, "0")}`,
+    });
+    $("nuevaHora").value = "";   // queda listo para cargar el siguiente horario
+  } catch (e) {
+    console.error(e);
+    $("crearError").textContent = "No se pudo crear el turno (¿reglas publicadas?).";
+  }
+};
+
+/* ---------- Vista ---------- */
+let filtro = "disponibles";
+
+function matchFiltro(t, f) {
+  const tienePaciente = !!String(t.paciente ?? "").trim();
+  if (f === "todos") return true;
+  if (f === "disponibles") return !tienePaciente && t.estado !== "Cancelado";
+  if (f === "Pendiente") return tienePaciente && t.estado === "Pendiente";
+  if (f === "Confirmado") return t.estado === "Confirmado";
+  return t.estado === "Cancelado";
+}
+function boton(texto, clase, onClick) {
+  const b = document.createElement("button");
+  b.textContent = texto;
+  if (clase) b.className = clase;
+  b.onclick = onClick;
+  return b;
+}
+
+function linea(texto) {
+  const p = document.createElement("div");
+  p.className = "muted";
+  p.textContent = texto;   // textContent: los datos del paciente nunca se interpretan como HTML
+  return p;
+}
+
+function render() {
+  // Solapa activa + contador de cada solapa
+  for (const b of document.querySelectorAll("#tabs button")) {
+    const f = b.dataset.f;
+    b.setAttribute("aria-pressed", String(f === filtro));
+    b.textContent = `${b.dataset.nombre} (${turnos.filter(t => matchFiltro(t, f)).length})`;
+  }
+  const visibles = turnos
+    .filter(t => matchFiltro(t, filtro))
+    .sort((a, b) => (a.fecha + a.hora).localeCompare(b.fecha + b.hora));
+
+  const lista = $("lista");
+  lista.innerHTML = "";
+  if (!visibles.length) {
+    const nombre = document.querySelector(`#tabs button[data-f="${filtro}"]`).dataset.nombre.toLowerCase();
+    lista.appendChild(linea(filtro === "todos" ? "No hay turnos." : `No hay turnos ${nombre}.`));
+    return;
+  }
+
+  for (const t of visibles) {
+    const card = document.createElement("div");
+    card.className = "card" + (t.estado === "Cancelado" ? " cancelado" : "");
+
+    const fila = document.createElement("div");
+    fila.className = "fila";
+    const cuando = document.createElement("span");
+    cuando.className = "cuando";
+    cuando.textContent = `${fechaLarga(t.fecha)} · ${t.hora} hs`;
+    const estado = document.createElement("span");
+    estado.className = "estado " + t.estado;
+    estado.textContent = t.estado;
+    fila.append(cuando, estado);
+    card.appendChild(fila);
+
+    const nombre = document.createElement("div");
+    nombre.textContent = t.paciente;
+    card.appendChild(nombre);
+    if (t.telefono) card.appendChild(linea("WhatsApp: " + t.telefono));
+    if (t.cobertura) card.appendChild(linea("Cobertura: " + t.cobertura));
+    if (t.motivo) card.appendChild(linea("Motivo: " + t.motivo));
+
+    const acciones = document.createElement("div");
+    acciones.className = "acciones";
+    if (t.paciente) {
+      if (t.estado === "Pendiente") acciones.appendChild(boton(numeroWa(t.telefono) ? "Confirmar y avisar" : "Confirmar", "primary", () => confirmar(t)));
+      if (t.estado === "Confirmado" && numeroWa(t.telefono)) acciones.appendChild(boton("Reenviar confirmación", "", () => window.open(urlWhatsApp(t, "confirmar"), "_blank", "noopener")));
+      if (t.estado !== "Cancelado") acciones.appendChild(boton("Cancelar", "danger", () => cancelar(t)));
+      else acciones.appendChild(boton("Eliminar registro", "danger", () => eliminar(t)));
+    } else {
+      // Turno disponible (cargado a mano o por error de carga): solo se puede eliminar.
+      acciones.appendChild(boton("Eliminar turno", "danger", () => eliminar(t)));
+    }
+    card.appendChild(acciones);
+
+    lista.appendChild(card);
+  }
+}
+
+for (const b of document.querySelectorAll("#tabs button")) {
+  b.onclick = () => { filtro = b.dataset.f; render(); };
+}
+</script>
+<script>
+  if ("serviceWorker" in navigator) {
+    window.addEventListener("load", () => navigator.serviceWorker.register("./sw.js").catch(() => {}));
+  }
+</script>
+</body>
+</html>
