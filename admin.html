@@ -50,9 +50,19 @@
 <main>
   <h1>Panel de la Dra. Julieta</h1>
 
-  <div id="panel">
+  <div id="login" class="card">
+    <label for="usuario">Usuario</label>
+    <input id="usuario" autocomplete="username" autocapitalize="none">
+    <label for="clave">Contraseña</label>
+    <input id="clave" type="password" autocomplete="current-password">
+    <button class="primary" id="entrar">Entrar</button>
+    <p class="error" id="loginError"></p>
+  </div>
+
+  <div id="panel" hidden>
     <div class="top">
       <button id="volver">← Volver</button>
+      <button id="salir" hidden>Salir</button>
       <span class="muted">Acceso privado</span>
     </div>
     <div class="tabs" id="tabs" role="tablist">
@@ -66,7 +76,7 @@
     <div id="lista"></div>
   </div>
 
-  <div id="crearTurno" class="card">
+  <div id="crearTurno" class="card" hidden>
     <label for="nuevaFecha">Crear turno disponible (aparece en el formulario público)</label>
     <div class="campos">
       <input id="nuevaFecha" type="date" aria-label="Fecha del turno">
@@ -81,30 +91,39 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-app.js";
 import { getFirestore, collection, doc, query, onSnapshot, updateDoc, writeBatch, addDoc }
   from "https://www.gstatic.com/firebasejs/11.0.2/firebase-firestore.js";
+import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut }
+  from "https://www.gstatic.com/firebasejs/11.0.2/firebase-auth.js";
 import { firebaseConfig, lugar } from "./config.js";
 
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
+const auth = getAuth(app);
 const $ = id => document.getElementById(id);
 
 let turnos = [];
 let dejarDeEscuchar = null;
 
-/* ---------- Escucha de turnos (todo el acceso de lectura del panel está acá) ----------
-   MODO DE PRUEBA, SIN LOGIN. La lectura vive solo en escucharTurnos() / pararEscucha()
-   para que al sumar el login alcance con reconectar la escucha y no tocar el resto.
+/* ---------- Login ----------
+   En pantalla se escribe solo "doctora" (sin @). Internamente se completa a un
+   email para Firebase Auth: doctora@juliturnos.com es la ÚNICA cuenta creada
+   en la consola, así que cualquier otro usuario falla el login.
+   La seguridad real está en firestore.rules: sin sesión con ese email,
+   Firestore rechaza toda escritura del panel (ver esAdmin()). */
+function entrar() {
+  const usuario = $("usuario").value.trim().toLowerCase();
+  const clave = $("clave").value;
+  if (!usuario || !clave) { $("loginError").textContent = "Completá usuario y contraseña."; return; }
+  $("entrar").disabled = true;
+  $("loginError").textContent = "";
+  signInWithEmailAndPassword(auth, `${usuario}@juliturnos.com`, clave)
+    .catch(() => { $("loginError").textContent = "Usuario o contraseña incorrectos."; })
+    .finally(() => { $("entrar").disabled = false; });
+}
+$("entrar").onclick = entrar;
+$("clave").addEventListener("keydown", e => { if (e.key === "Enter") entrar(); });
+$("salir").onclick = () => signOut(auth);
 
-   PARA VOLVER AL LOGIN MÁS ADELANTE:
-   1. Volver a importar firebase-auth.js y crear auth = getAuth(app).
-   2. Reponer en el HTML el <div id="login"> y el botón "Salir" (en la carpeta
-      base quedaron quitados en esta versión temporal).
-   3. Reemplazar la llamada escucharTurnos() de más abajo por:
-      onAuthStateChanged(auth, user => {
-        $("login").hidden = !!user; $("panel").hidden = !user;
-        pararEscucha();
-        if (user) escucharTurnos(); else { turnos = []; render(); }
-      });
-   4. En firestore.rules, volver a la versión con esAdmin(). */
+/* ---------- Escucha de turnos (todo el acceso de lectura del panel está acá) ----------
 function escucharTurnos() {
   // Escucha en tiempo real: si entra una reserva nueva, aparece sola.
   // Sin orderBy en la consulta: Firestore descartaría los docs cargados a mano
@@ -123,8 +142,16 @@ function pararEscucha() {
   if (dejarDeEscuchar) { dejarDeEscuchar(); dejarDeEscuchar = null; }
 }
 
-// MODO SIN LOGIN: arranca la escucha directo.
-escucharTurnos();
+// Según la sesión: logueada → panel; NO logueada → solo el login.
+// onAuthStateChanged también mantiene la sesión al recargar la página.
+onAuthStateChanged(auth, user => {
+  pararEscucha();
+  $("login").hidden = !!user;
+  $("panel").hidden = !user;
+  $("crearTurno").hidden = !user;
+  $("salir").hidden = !user;
+  if (user) escucharTurnos(); else { turnos = []; render(); }
+});
 
 /* ---------- Utilidades ---------- */
 const esFechaIso = f => /^\d{4}-\d{2}-\d{2}$/.test(f);
