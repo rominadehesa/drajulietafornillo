@@ -116,7 +116,23 @@ function entrar() {
   $("entrar").disabled = true;
   $("loginError").textContent = "";
   signInWithEmailAndPassword(auth, `${usuario}@juliturnos.com`, clave)
-    .catch(() => { $("loginError").textContent = "Usuario o contraseña incorrectos."; })
+    .catch(e => {
+      // Mensaje legible según el código; se agrega el código real para diagnóstico.
+      const leyenda = {
+        "auth/invalid-credential": "Usuario o contraseña incorrectos.",
+        "auth/wrong-password": "Contraseña incorrecta.",
+        "auth/user-not-found": "Ese usuario no existe en Firebase Auth.",
+        "auth/invalid-email": "El usuario tiene formato de email inválido.",
+        "auth/user-disabled": "La cuenta está deshabilitada.",
+        "auth/too-many-requests": "Demasiados intentos fallidos. Esperá un rato y volvé a probar.",
+        "auth/network-request-failed": "Fallo de red: no se pudo conectar con Firebase.",
+        "auth/operation-not-allowed": "El login por email/contraseña no está habilitado en la consola de Firebase.",
+        "auth/invalid-api-key": "La apiKey de config.js es inválida.",
+        "auth/api-key-not-valid": "La apiKey de config.js es inválida.",
+      }[e?.code] || "No se pudo iniciar sesión.";
+      console.error("[login]", e);
+      $("loginError").textContent = `${leyenda} (código: ${e?.code ?? "desconocido"})`;
+    })
     .finally(() => { $("entrar").disabled = false; });
 }
 $("entrar").onclick = entrar;

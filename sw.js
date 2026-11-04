@@ -3,7 +3,7 @@
 // y TODO lo de Firebase (firestore.googleapis.com, gstatic) va siempre a la
 // red: los datos de turnos nunca se sirven desde caché.
 // ⚠️ Al cambiar archivos, subí VERSION para que los celulares se actualicen.
-const VERSION = "drajulieta-v14";
+const VERSION = "drajulieta-v15";
 const APP_SHELL = [
   "./",
   "./index.html",
