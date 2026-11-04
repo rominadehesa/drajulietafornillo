@@ -1,9 +1,11 @@
 // Service worker de la PWA de turnos de la Dra. Julieta.
-// Estrategia simple: cache-first para los archivos propios (app shell),
-// y TODO lo de Firebase (firestore.googleapis.com, gstatic) va siempre a la
-// red: los datos de turnos nunca se sirven desde caché.
+// Estrategia:
+//   - Navegaciones (los HTML): NETWORK-FIRST. Cada recarga trae la versión
+//     publicada al instante; la caché se usa solo como respaldo sin conexión.
+//   - Estáticos inmutables (íconos, perfil, manifest): cache-first.
+//   - Firebase (firestore.googleapis.com, gstatic): SIEMPRE red, nunca caché.
 // ⚠️ Al cambiar archivos, subí VERSION para que los celulares se actualicen.
-const VERSION = "drajulieta-v15";
+const VERSION = "drajulieta-v16";
 const APP_SHELL = [
   "./",
   "./index.html",
@@ -37,15 +39,28 @@ self.addEventListener("fetch", e => {
   if (e.request.method !== "GET" || url.origin !== self.location.origin) return;
   if (url.pathname.endsWith(".rules")) return;
 
+  // Navegaciones (HTML): red primero, caché solo si falla (offline).
+  if (e.request.mode === "navigate") {
+    e.respondWith(
+      fetch(e.request).then(resp => {
+        const copia = resp.clone();
+        caches.open(VERSION).then(c => c.put(e.request, copia));
+        return resp;
+      }).catch(() =>
+        caches.match(e.request)
+          .then(hit => hit || caches.match(url.pathname.startsWith("/admin") ? "./admin.html" : "./index.html"))
+      )
+    );
+    return;
+  }
+
+  // Estáticos inmutables (íconos, perfil, manifest, config): caché primero.
   e.respondWith(
     caches.match(e.request).then(hit =>
       hit || fetch(e.request).then(resp => {
         const copia = resp.clone();
         caches.open(VERSION).then(c => c.put(e.request, copia));
         return resp;
-      }).catch(() => {
-        // Sin conexión: mientras haya algo en caché, se abre igual.
-        return caches.match(url.pathname.startsWith("/admin") ? "./admin.html" : "./index.html");
       })
     )
   );
