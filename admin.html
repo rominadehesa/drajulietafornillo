@@ -250,6 +250,42 @@ function fechaLarga(fecha) {
   return t.charAt(0).toUpperCase() + t.slice(1);
 }
 
+// Detectar turnos pasados. Las fechas vienen en dos formatos:
+//   ISO: "2026-11-05" (raro, docs viejos)
+//   texto del panel: "Viernes 06 de Nov" (formato fechaComoDoc)
+const MESES = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
+
+function fechaADate(txt) {
+  const f = String(txt ?? "").trim().toLowerCase();
+  if (esFechaIso(f)) {
+    const [y, m, d] = f.split("-").map(Number);
+    return new Date(y, m - 1, d);
+  }
+  // "viernes 06 de nov" → día 6, mes nov. El día de la semana se ignora a propósito:
+  // manda el número del día + mes. Para el año se toma el candidato más cercano a hoy
+  // (así agenda cargada cerca de fin de año funciona bien).
+  const m = f.match(/(\d{1,2})\W+([a-z]{3})/);
+  if (m) {
+    const mi = MESES.indexOf(m[2]);
+    if (mi >= 0) {
+      const dia = Number(m[1]);
+      const y0 = new Date().getFullYear();
+      const cand = [y0 - 1, y0, y0 + 1].map(yy => new Date(yy, mi, dia));
+      cand.sort((a, b) => Math.abs(a - new Date()) - Math.abs(b - new Date()));
+      return cand[0];
+    }
+  }
+  return null;   // fecha ilegible o missing → se trata como viejo (oculto)
+}
+
+function esViejo(t) {
+  const d = fechaADate(t.fecha);
+  if (!d) return true;
+  const hoy = new Date();
+  hoy.setHours(23, 59, 59, 999);   // lo de HOY NO es viejo, ni aunque la hora ya pasó
+  return d < hoy;
+}
+
 function numeroWa(tel) {
   let n = String(tel || "").replace(/\D/g, "");
   if (n.length === 10) n = "549" + n;   // área + número sin código de país
@@ -332,14 +368,23 @@ $("crear").onclick = async () => {
 /* ---------- Vista ---------- */
 // Un solo listado (sin filtros): turnos ordenados y agrupados por día.
 // Arriba, un resumen con contadores: cúantos libres/pendientes/confirmados/cancelados.
+// Los turnos de fechas pasadas NO se muestran por defecto (el pie los deja ver).
 function libre(t) { return !String(t.paciente ?? "").trim() && t.estado !== "Cancelado"; }
 
+let mostrarViejos = false;   // el pie de lista alterna: los pasados quedan ocultos por defecto
+
 function render() {
-  // Chips de resumen
-  const libres = turnos.filter(libre).length;
-  const pend = turnos.filter(t => t.paciente && t.estado === "Pendiente").length;
-  const conf = turnos.filter(t => t.estado === "Confirmado").length;
-  const canc = turnos.filter(t => t.estado === "Cancelado").length;
+  const orden = turnos
+    .slice()
+    .sort((a, b) => (a.fecha + a.hora).localeCompare(b.fecha + b.hora));
+  const futuros = orden.filter(t => !esViejo(t));
+  const viejos = orden.filter(esViejo);
+
+  // Chips de resumen: cuentan solo los turnos próximos (los pasados no ensucian).
+  const libres = futuros.filter(libre).length;
+  const pend = futuros.filter(t => t.paciente && t.estado === "Pendiente").length;
+  const conf = futuros.filter(t => t.estado === "Confirmado").length;
+  const canc = futuros.filter(t => t.estado === "Cancelado").length;
   const resumen = $("resumen");
   resumen.innerHTML = "";
   for (const [v, txt] of [[libres, "libres"], [pend, "pendientes"], [conf, "confirmados"], [canc, "cancelados"]]) {
@@ -348,20 +393,30 @@ function render() {
     resumen.appendChild(chip);
   }
 
-  const visibles = turnos
-    .slice()
-    .sort((a, b) => (a.fecha + a.hora).localeCompare(b.fecha + b.hora));
+  // Lista: próximos siempre; los pasados solo si el pie de lista los muestra.
+  const mostrar = mostrarViejos ? futuros.concat(viejos) : futuros;
 
   const lista = $("lista");
   lista.innerHTML = "";
-  if (!visibles.length) {
+  if (!orden.length) {
     lista.appendChild(linea("No hay turnos cargados."));
     return;
+  }
+  if (!mostrar.length) {
+    lista.appendChild(linea("No hay turnos próximos."));
   }
 
   // Encabezado por día: se repite cuando cambia la fecha entre cards seguidas.
   let diaPrevio = null;
-  for (const t of visibles) {
+  let yaEnPasados = false;
+  for (const t of mostrar) {
+    if (mostrarViejos && esViejo(t) && !yaEnPasados) {
+      yaEnPasados = true;
+      const separador = document.createElement("div");
+      separador.className = "dia";
+      separador.textContent = "📂 Turnos pasados";
+      lista.appendChild(separador);
+    }
     const dl = fechaLarga(t.fecha);
     if (dl !== diaPrevio) {
       diaPrevio = dl;
@@ -406,6 +461,19 @@ function render() {
     card.appendChild(acciones);
 
     lista.appendChild(card);
+  }
+
+  // Pie de lista: los pasados NO se borran nunca solo; quedan guardados y se
+  // pueden ver/borrar a mano desde acá.
+  if (viejos.length) {
+    const pie = document.createElement("div");
+    pie.style.marginTop = "16px";
+    pie.appendChild(boton(
+      mostrarViejos ? `Ocultar los ${viejos.length} turnos pasados` : `Mostrar ${viejos.length} turno(s) pasado(s)`,
+      "",
+      () => { mostrarViejos = !mostrarViejos; render(); }
+    ));
+    lista.appendChild(pie);
   }
 }
 
