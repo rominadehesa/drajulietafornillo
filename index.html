@@ -44,6 +44,9 @@
   .tabs { display: flex; gap: 8px; margin-bottom: 16px; }
   .tabs button { flex: 1; padding: 12px; border: 1px solid var(--border); background: transparent; color: var(--text); border-radius: 10px; font: inherit; cursor: pointer; }
   .tabs button[aria-pressed="true"] { background: var(--accent); color: var(--accent-text); border-color: var(--accent); }
+  /* Botoncito de acceso al panel del doctor (esquina superior derecha) */
+  .iconoAcceso { position: fixed; top: 12px; right: 12px; width: 40px; height: 40px; padding: 0; display: inline-flex; align-items: center; justify-content: center; border-radius: 50%; border: 1px solid var(--border); background: var(--card); color: var(--muted); cursor: pointer; }
+  .iconoAcceso:hover { color: var(--accent); border-color: var(--accent); }
   [hidden] { display: none !important; }
   .info li { display: flex; gap: 10px; align-items: flex-start; padding: 8px 0; border-bottom: 1px solid var(--border); }
   .info li:last-child { border-bottom: 0; padding-bottom: 0; }
@@ -60,6 +63,10 @@
 <body>
 <main>
   <header class="perfil">
+    <!-- Acceso al panel: icono de usuario discreto (antes era la puerta secreta de 5 toques en la foto) -->
+    <button id="accesoAdmin" class="iconoAcceso" title="Panel de administración" aria-label="Abrir panel de administración">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-6 8-6s8 2 8 6"/></svg>
+    </button>
     <img class="avatar" id="foto" src="./icons/perfil.jpg" alt="Dra. Julieta Fornillo">
     <div>
       <h1 id="nombre"></h1>
@@ -306,19 +313,11 @@ const fotoInfo = document.querySelector(".fotoInfo");
 $("lightbox").addEventListener("click", () => $("lightbox").hidden = true);
 fotoInfo.addEventListener("click", () => $("lightbox").hidden = false);
 
-/* Acceso secreto: 5 toques en la foto → panel de administración.
-   pointerdown + preventDefault: cuenta el toque al instante y el navegador
-   no interpretará los toques dobles como zoom (complementa touch-action). */
-let tapsFoto = 0, timerFoto = null;
-$("foto").addEventListener("pointerdown", e => {
-  e.preventDefault();
-  clearTimeout(timerFoto);
-  tapsFoto++;
-  timerFoto = setTimeout(() => { tapsFoto = 0; }, 2500);
-  if (tapsFoto >= 5) {
-    tapsFoto = 0; clearTimeout(timerFoto);
-    window.location.href = "./admin";
-  }
+/* Acceso al panel: botón con icono de usuario (esquina sup. derecha).
+   Sustituye la vieja puerta secreta de 5 toques en la foto del sitio.
+   La seguridad de verla queda en el login Google + reglas de Firestore. */
+$("accesoAdmin").addEventListener("click", () => {
+  window.location.href = "./admin";
 });
 
 cargarDatos().then(renderDias);
