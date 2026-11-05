@@ -44,8 +44,8 @@
   .tabs { display: flex; gap: 8px; margin-bottom: 16px; }
   .tabs button { flex: 1; padding: 12px; border: 1px solid var(--border); background: transparent; color: var(--text); border-radius: 10px; font: inherit; cursor: pointer; }
   .tabs button[aria-pressed="true"] { background: var(--accent); color: var(--accent-text); border-color: var(--accent); }
-  /* Botoncito de acceso al panel del doctor (esquina superior derecha) */
-  .iconoAcceso { position: fixed; top: 12px; right: 12px; width: 40px; height: 40px; padding: 0; display: inline-flex; align-items: center; justify-content: center; border-radius: 50%; border: 1px solid var(--border); background: var(--card); color: var(--muted); cursor: pointer; }
+  /* Botoncito de acceso al panel del doctor: a la derecha del encabezado (foto + nombre) */
+  .iconoAcceso { margin-left: auto; align-self: center; width: 40px; height: 40px; padding: 0; display: inline-flex; align-items: center; justify-content: center; border-radius: 50%; border: 1px solid var(--border); background: var(--card); color: var(--muted); cursor: pointer; flex-shrink: 0; }
   .iconoAcceso:hover { color: var(--accent); border-color: var(--accent); }
   [hidden] { display: none !important; }
   .info li { display: flex; gap: 10px; align-items: flex-start; padding: 8px 0; border-bottom: 1px solid var(--border); }
@@ -63,16 +63,16 @@
 <body>
 <main>
   <header class="perfil">
-    <!-- Acceso al panel: icono de usuario discreto (antes era la puerta secreta de 5 toques en la foto) -->
-    <button id="accesoAdmin" class="iconoAcceso" title="Panel de administración" aria-label="Abrir panel de administración">
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-6 8-6s8 2 8 6"/></svg>
-    </button>
     <img class="avatar" id="foto" src="./icons/perfil.jpg" alt="Dra. Julieta Fornillo">
     <div>
       <h1 id="nombre"></h1>
       <p class="sub" id="detalle"></p>
       <p class="mini" id="pie"></p>
     </div>
+    <!-- Acceso al panel: icono de usuario a la derecha del encabezado (antes era la puerta secreta de 5 toques en la foto) -->
+    <button id="accesoAdmin" class="iconoAcceso" title="Panel de administración" aria-label="Abrir panel de administración">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-6 8-6s8 2 8 6"/></svg>
+    </button>
   </header>
 
   <nav class="tabs" id="solapas" role="tablist" aria-label="Secciones">
