@@ -72,6 +72,16 @@ service cloud.firestore {
       // (no hay allow update)
     }
 
+    // ---------- 3. config: bandera de acceso del panel ----------
+    // Tras el login con Google, el panel intenta leer /config/acceso:
+    // si Firestore se lo permite, la cuenta es admin y entra; si niega la
+    // lectura, NO lo es → la sesión se cierra y se muestra el cartel.
+    // Así la lista de quién entra vive ÚNICAMENTE en esAdmin() (arriba).
+    match /config/{id} {
+      allow read: if esAdmin();
+      // (no hay allow write → el doc no hace falta que exista ni se edita a mano)
+    }
+
     // ---------- 3. horarios (formato de franjas, por si se usa más adelante) ----------
     match /horarios/{id} {
       allow read: if true;
