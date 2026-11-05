@@ -123,16 +123,16 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-app.js";
 import { getFirestore, collection, doc, query, getDoc, onSnapshot, updateDoc, writeBatch, addDoc }
   from "https://www.gstatic.com/firebasejs/11.0.2/firebase-firestore.js";
-import { getAuth, GoogleAuthProvider, inMemoryPersistence, onAuthStateChanged, setPersistence, signInWithPopup, signOut }
+import { getAuth, GoogleAuthProvider, onAuthStateChanged, signInWithPopup, signOut }
   from "https://www.gstatic.com/firebasejs/11.0.2/firebase-auth.js";
 import { firebaseConfig, lugar } from "./config.js";
 
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 const auth = getAuth(app);
-// "Siempre cerrada": la sesión vive solo en memoria. Al cerrar o recargar la
-// página el panel vuelve al login y hay que entrar de nuevo (un solo toque).
-setPersistence(auth, inMemoryPersistence).catch(() => {});
+// Sesión PERSISTENTE (modo por defecto de Firebase): al entrar, la sesión queda
+// guardada en el navegador aunque se cierre, hasta que alguien toque "Salir".
+// Al gastarse el cartel de no-autorizada no interfiere: se cierra con signOut igual.
 const $ = id => document.getElementById(id);
 
 let turnos = [];
